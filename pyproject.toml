@@ -1,6 +1,23 @@
-# Config only — this repo ships runnable scripts, not an installable package,
-# so there is no [build-system] or [project] table. This file just centralizes
-# tool configuration (ruff, pytest).
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "huawei-dn8245v-decrypt"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "pycryptodome>=3.20",
+]
+
+[project.scripts]
+huawei-config = "huawei_config:main"
+
+[tool.setuptools]
+py-modules = ["huawei_config"]
+
+[tool.setuptools.packages.find]
+include = ["tools*"]
 
 [tool.ruff]
 line-length = 100
@@ -13,3 +30,8 @@ ignore = ["E501"]                         # line length is handled by `ruff form
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.17.4",
+]

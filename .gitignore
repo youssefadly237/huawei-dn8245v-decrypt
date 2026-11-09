@@ -8,3 +8,7 @@ hw_ctree*
 *config-backup*
 __pycache__/
 *.pyc
+.venv/
+build/
+dist/
+*.egg-info/

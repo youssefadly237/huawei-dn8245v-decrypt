@@ -6,12 +6,16 @@ Great for "what did this toggle actually do?" (dump before, change one thing,
 dump after, diff) or spotting what a firmware update rewrote.
 
 Usage:
-    python3 config_diff.py OLD.xml NEW.xml
+    huawei-config diff OLD.xml NEW.xml
+
+Standalone:
+    uv run python tools/config_diff.py OLD.xml NEW.xml
 
 Secret-named attributes are masked to *** before comparing, so a changed
 password shows as "(secret changed)" -- never the value.
 """
 
+import argparse
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -88,8 +92,25 @@ def _print_group(title, items, fmt):
     print()
 
 
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="huawei-config diff",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("old", metavar="OLD.xml", help="older decrypted config")
+    parser.add_argument("new", metavar="NEW.xml", help="newer decrypted config")
+    return parser
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    try:
+        args = build_parser().parse_args(argv)
+    except SystemExit as exc:  # argparse already printed help or an error
+        return exc.code if isinstance(exc.code, int) else 2
+    return 0 if diff(args.old, args.new) == 0 else 1
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print(__doc__)
-        raise SystemExit(1)
-    raise SystemExit(0 if diff(sys.argv[1], sys.argv[2]) == 0 else 1)
+    raise SystemExit(main())

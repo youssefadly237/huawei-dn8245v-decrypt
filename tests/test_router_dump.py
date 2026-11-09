@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for router_dump.py — run with:  python3 tests/test_router_dump.py"""
+"""Tests for router_dump.py — run with:  uv run python tests/test_router_dump.py"""
 
 import contextlib
 import io

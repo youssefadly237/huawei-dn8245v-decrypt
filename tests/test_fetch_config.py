@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for fetch_config.py — run with:  python3 tests/test_fetch_config.py
+"""Tests for fetch_config.py — run with:  uv run python tests/test_fetch_config.py
 
 Covers the offline-testable logic: onttoken extraction and the guard that
 rejects an HTML/error page. The live HTTP flow is device-specific and not

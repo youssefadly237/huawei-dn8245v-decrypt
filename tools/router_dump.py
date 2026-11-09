@@ -4,23 +4,27 @@ Dump the human-useful settings from a decrypted Huawei DN8245V config in one go
 (22 sections: WiFi, WAN, DHCP, DNS, devices, QoS, VoIP, security, ...). Read-only.
 
 Usage:
-    python3 router_dump.py                    # all sections (readable summary)
-    python3 router_dump.py wifi wan           # just the sections you name
-    python3 router_dump.py --list             # list section names
-    python3 router_dump.py --full             # 100% snapshot to a file
-    python3 router_dump.py --file X.xml ...   # use a different config file
-    python3 router_dump.py --out Y.txt --full # write the snapshot somewhere else
+    huawei-config dump                       # all sections (readable summary)
+    huawei-config dump wifi wan              # just the sections you name
+    huawei-config dump --list                # list section names
+    huawei-config dump --full                # 100% snapshot to a file
+    huawei-config dump --file X.xml ...      # use a different config file
+    huawei-config dump --out Y.txt --full    # write the snapshot somewhere else
+
+Standalone: replace `huawei-config dump` with
+`uv run python tools/router_dump.py`.
 
 Sections: system wifi wan vlan dhcp dns ports devices users qos voip ipv6
           parental remote alg iptv wifiextra usb security firewall time acs
 
-Feed it the XML that decrypt_dn8245v.py produces.
+Feed it the XML that `huawei-config decrypt` produces.
 
 Safe by construction: every section pulls only non-secret attributes by name, so
 WiFi keys, PPPoE passwords, and user password hashes are never read or printed.
 The --full snapshot redacts secret-named attributes across the whole tree.
 """
 
+import argparse
 import re
 import sys
 import xml.etree.ElementTree as ET
@@ -404,37 +408,56 @@ def write_full_snapshot(path_in, path_out):
     print(f"[+] {redacted} secret value(s) redacted by name")
 
 
-def _pop_value(args, flag, default):
-    """Remove '--flag VALUE' from args and return VALUE (or default)."""
-    if flag in args:
-        i = args.index(flag)
-        if i + 1 >= len(args):
-            raise SystemExit(f"{flag} needs a value, e.g. {flag} PATH")
-        value = args[i + 1]
-        del args[i : i + 2]
-        return value
-    return default
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="huawei-config dump",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--file", default=DEFAULT_XML, metavar="PATH", help="decrypted XML (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--out",
+        default=DEFAULT_SNAPSHOT,
+        metavar="PATH",
+        help="snapshot path for --full (default: %(default)s)",
+    )
+    parser.add_argument("--full", action="store_true", help="write a 100%% snapshot to --out")
+    parser.add_argument(
+        "--list", dest="list_sections", action="store_true", help="list section names and exit"
+    )
+    parser.add_argument(
+        "sections", nargs="*", metavar="SECTION", help="sections to print (default: all)"
+    )
+    return parser
 
 
-if __name__ == "__main__":
-    args = sys.argv[1:]
-    if "--list" in args:
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    parser = build_parser()
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:  # argparse already printed help or an error
+        return exc.code if isinstance(exc.code, int) else 2
+
+    if args.list_sections:
         print("sections:", ", ".join(SECTION_NAMES))
-        raise SystemExit(0)
+        return 0
 
-    full = "--full" in args
-    path = _pop_value(args, "--file", DEFAULT_XML)
-    out = _pop_value(args, "--out", DEFAULT_SNAPSHOT)
-    wanted = [a for a in args if not a.startswith("--")]  # section names
+    if args.full:
+        write_full_snapshot(args.file, args.out)
+        return 0
 
-    if full:
-        write_full_snapshot(path, out)
-        raise SystemExit(0)
-
-    bad = [n for n in wanted if n not in SECTION_NAMES]
+    bad = [n for n in args.sections if n not in SECTION_NAMES]
     if bad:
         print(f"unknown section(s): {', '.join(bad)}")
         print("valid:", ", ".join(SECTION_NAMES))
-        raise SystemExit(2)
-    with open(path, encoding="latin-1") as f:
-        dump(f.read(), wanted or None)
+        return 2
+    with open(args.file, encoding="latin-1") as f:
+        dump(f.read(), args.sections or None)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

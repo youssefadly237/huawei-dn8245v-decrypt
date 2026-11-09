@@ -1,36 +1,67 @@
 #!/usr/bin/env python3
 """
-One entry point for the Huawei DN8245V config toolkit. Each subcommand just
-forwards its arguments to the matching standalone script, so the individual
-tools stay runnable on their own too.
+One entry point for the Huawei DN8245V config toolkit.
 
-    python3 huawei_config.py fetch    config.bin
-    python3 huawei_config.py decrypt  config.bin config.xml
-    python3 huawei_config.py dump     --file config.xml wifi wan
-    python3 huawei_config.py diff     old.xml new.xml
+    huawei-config fetch    config.bin
+    huawei-config decrypt  config.bin config.xml
+    huawei-config dump     --file config.xml wifi wan
+    huawei-config diff     old.xml new.xml
+
+From a checkout, run it with `uv run huawei-config ...` (or
+`python3 huawei_config.py ...`). The individual tools also stay runnable on
+their own, e.g. `uv run python tools/decrypt_dn8245v.py ...`.
 """
 
-import os
-import subprocess
+import argparse
+import importlib
 import sys
 
-TOOLS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools")
+# command -> "module:function". Imports are lazy so commands that do not touch
+# crypto still work in an environment without pycryptodome.
 TOOLS = {
-    "fetch": "fetch_config.py",
-    "decrypt": "decrypt_dn8245v.py",
-    "dump": "router_dump.py",
-    "diff": "config_diff.py",
+    "fetch": "tools.fetch_config:main",
+    "decrypt": "tools.decrypt_dn8245v:main",
+    "dump": "tools.router_dump:main",
+    "diff": "tools.config_diff:main",
 }
 
 
-def main(argv):
-    if not argv or argv[0] in ("-h", "--help") or argv[0] not in TOOLS:
-        print(__doc__)
-        print("commands:", ", ".join(TOOLS))
-        return 0 if argv[:1] in (["-h"], ["--help"]) else 2
-    script = os.path.join(TOOLS_DIR, TOOLS[argv[0]])
-    return subprocess.call([sys.executable, script, *argv[1:]])
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="huawei-config",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="Run 'huawei-config COMMAND --help' for command-specific options.",
+    )
+    sub = parser.add_subparsers(dest="command", metavar="COMMAND", title="commands")
+    sub.add_parser("fetch", help="download the encrypted backup from the router", add_help=False)
+    sub.add_parser("decrypt", help="decrypt a backup to plaintext XML", add_help=False)
+    sub.add_parser("dump", help="print the settings as readable sections", add_help=False)
+    sub.add_parser("diff", help="compare two decrypted configs", add_help=False)
+    return parser
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    parser = build_parser()
+    if not argv:
+        parser.print_help()
+        return 2
+
+    try:
+        args, rest = parser.parse_known_args(argv)
+    except SystemExit as exc:  # argparse already printed help or an error
+        return exc.code if isinstance(exc.code, int) else 2
+
+    spec = TOOLS.get(args.command)
+    if spec is None:
+        parser.print_help()
+        return 2
+
+    module_name, _, func_name = spec.partition(":")
+    func = getattr(importlib.import_module(module_name), func_name)
+    return func(rest)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(sys.argv[1:]))
+    raise SystemExit(main())

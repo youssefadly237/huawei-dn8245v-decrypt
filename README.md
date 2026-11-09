@@ -59,6 +59,19 @@ body      = AES-256-CBC( key, iv = salt )
 The container also carries an `HMAC-SHA256(key, ciphertext)` that the tool checks;
 a mismatch is reported and the process exits non-zero.
 
+## Install
+
+This repo uses [uv](https://docs.astral.sh/uv/). From the repo root:
+
+```bash
+uv sync                        # create .venv, install pycryptodome + dev tools
+uv run huawei-config --help    # installed console entry point
+```
+
+`huawei-config` has four subcommands: `fetch`, `decrypt`, `dump`, and `diff`.
+The examples below use `uv run` so they work straight from a checkout; inside an
+activated `.venv`, drop the `uv run` prefix.
+
 ## The pipeline
 
 ```
@@ -69,17 +82,18 @@ fetch_config.py  ->  decrypt_dn8245v.py  ->  router_dump.py  ->  config_diff.py
 Or drive all four from one entry point:
 
 ```bash
-python3 huawei_config.py fetch    config.bin
-python3 huawei_config.py decrypt  config.bin config.xml
-python3 huawei_config.py dump     --file config.xml
-python3 huawei_config.py diff     old.xml new.xml
+uv run huawei-config fetch    config.bin
+uv run huawei-config decrypt  config.bin config.xml
+uv run huawei-config dump     --file config.xml
+uv run huawei-config diff     old.xml new.xml
 ```
 
 ## Repo layout
 
 ```
-huawei_config.py        # unified entry point (fetch|decrypt|dump|diff)
+huawei_config.py        # unified `huawei-config` entry point (fetch|decrypt|dump|diff)
 tools/
+  __init__.py           # makes the tools importable by the entry point
   fetch_config.py       # download the encrypted backup from the router
   decrypt_dn8245v.py    # decrypt it to plaintext XML
   router_dump.py        # print the settings as readable sections
@@ -88,7 +102,7 @@ tests/
   test_*.py             # one test file per tool + test_all.py runner
 ```
 
-The four tools also run standalone (`python3 tools/<name>.py ...`).
+The four tools also run standalone (`uv run python tools/<name>.py ...`).
 
 ## Download it from the router (`fetch_config.py`)
 
@@ -96,8 +110,8 @@ Pulls the encrypted backup straight off the router over the LAN, so you don't
 have to click through the web UI:
 
 ```bash
-ROUTER_PASS='youradminpw' python3 tools/fetch_config.py config.bin
-python3 tools/fetch_config.py config.bin       # or omit ROUTER_PASS to be prompted
+ROUTER_PASS='youradminpw' uv run huawei-config fetch config.bin
+uv run huawei-config fetch config.bin       # or omit ROUTER_PASS to be prompted
 ```
 
 Environment: `ROUTER_IP` (default `192.168.1.1`), `ROUTER_USER` (default `admin`),
@@ -105,11 +119,10 @@ Environment: `ROUTER_IP` (default `192.168.1.1`), `ROUTER_USER` (default `admin`
 does and is never logged or passed on the command line. Device-specific (drives
 `login.cgi` + `cfgfiledown.cgi` with a per-page token); tested on DN8245V-56.
 
-## Install & use
+## Decrypt the backup (`decrypt_dn8245v.py`)
 
 ```bash
-pip install -r requirements.txt          # pycryptodome (only the decryptor needs it)
-python3 tools/decrypt_dn8245v.py  config.bin  config.xml
+uv run huawei-config decrypt config.bin config.xml
 ```
 
 `config.bin` is the encrypted configuration backup the router's web UI produces
@@ -128,10 +141,10 @@ Once you have the plaintext XML, `router_dump.py` prints it as readable sections
 instead of 280+ raw tags:
 
 ```bash
-python3 tools/router_dump.py --file config.xml            # all sections
-python3 tools/router_dump.py --file config.xml wifi wan   # just the ones you name
-python3 tools/router_dump.py --list                        # section names
-python3 tools/router_dump.py --file config.xml --full      # 100% snapshot to a text file
+uv run huawei-config dump --file config.xml            # all sections
+uv run huawei-config dump --file config.xml wifi wan   # just the ones you name
+uv run huawei-config dump --list                       # section names
+uv run huawei-config dump --file config.xml --full     # 100% snapshot to a text file
 ```
 
 Sections: `system wifi wan vlan dhcp dns ports devices users qos voip ipv6
@@ -148,7 +161,7 @@ this toggle do?" (dump, change one thing, dump again, diff) or spotting what a
 firmware update rewrote:
 
 ```bash
-python3 tools/config_diff.py old.xml new.xml
+uv run huawei-config diff old.xml new.xml
 ```
 
 Secret-named values are masked before comparing, so a changed password shows as
@@ -157,7 +170,9 @@ Secret-named values are masked before comparing, so a changed password shows as
 ## Tests
 
 ```bash
-python3 tests/test_all.py        # runs everything, no pytest needed
+uv run python tests/test_all.py        # runs everything, no pytest needed
+uv run ruff check .                    # lint
+uv run ruff format --check .           # formatting
 ```
 
 Every tool has its own test file under `tests/` (`test_decrypt.py`,

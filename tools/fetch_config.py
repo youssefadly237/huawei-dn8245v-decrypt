@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """
 Download the encrypted configuration backup from a Huawei DN8245V over the LAN,
-so you can then decrypt it with decrypt_dn8245v.py. Stdlib only.
+so you can then decrypt it with `huawei-config decrypt`. Stdlib only.
 
-    ROUTER_PASS='...' python3 fetch_config.py config.bin
-    python3 fetch_config.py config.bin        # prompts for the password instead
+    ROUTER_PASS='...' huawei-config fetch config.bin
+    huawei-config fetch config.bin        # prompts for the password instead
+
+Standalone:
+    ROUTER_PASS='...' uv run python tools/fetch_config.py config.bin
 
 Environment:
     ROUTER_IP    default 192.168.1.1
@@ -18,6 +21,7 @@ The password is base64'd for the login form exactly as the web UI does; it is
 never logged. Tested on DN8245V-56 / firmware V500R022.
 """
 
+import argparse
 import base64
 import getpass
 import http.cookiejar
@@ -59,7 +63,7 @@ def fetch(out_path):
     with open(out_path, "wb") as f:
         f.write(blob)
     print(f"[+] wrote {out_path} ({len(blob)} bytes)")
-    print(f"    next: python3 huawei_config.py decrypt {out_path} config.xml")
+    print(f"    next: huawei-config decrypt {out_path} config.xml")
 
 
 def _login(opener, router, user, password):
@@ -128,8 +132,25 @@ def _ref(router):
     return f"https://{router}/{CFG_PAGE}"
 
 
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="huawei-config fetch",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("out", metavar="OUT", help="write the encrypted backup to OUT")
+    return parser
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    try:
+        args = build_parser().parse_args(argv)
+    except SystemExit as exc:  # argparse already printed help or an error
+        return exc.code if isinstance(exc.code, int) else 2
+    fetch(args.out)
+    return 0
+
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(__doc__)
-        raise SystemExit(1)
-    fetch(sys.argv[1])
+    raise SystemExit(main())

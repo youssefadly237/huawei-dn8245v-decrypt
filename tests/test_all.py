@@ -2,7 +2,7 @@
 """
 Run the whole test suite with one command:
 
-    python3 tests/test_all.py
+    uv run python tests/test_all.py
 
 Each tool has a normal test file under tests/ (the tools use underscore names,
 so they import cleanly). This runner invokes each file as a subprocess and

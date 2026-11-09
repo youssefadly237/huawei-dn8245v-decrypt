@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Tests for decrypt_dn8245v.py — run with:  python3 tests/test_decrypt.py
+Tests for decrypt_dn8245v.py — run with:  uv run python tests/test_decrypt.py
 
 No pytest dependency (matches the repo's minimal footprint). Uses only
 synthetic data plus one real header block that decodes to a public ISP

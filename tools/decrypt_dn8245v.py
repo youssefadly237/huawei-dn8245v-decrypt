@@ -22,7 +22,10 @@ Key derivation (from coolrecep's V500R022 research):
     pad needs no explicit trimming.
 
 Usage:
-    python3 decrypt_dn8245v.py <encrypted_config.bin> <output.xml>
+    huawei-config decrypt config.bin config.xml
+
+Standalone:
+    uv run python tools/decrypt_dn8245v.py config.bin config.xml
 
 Decrypt YOUR OWN router's config only. See README + LICENSE.
 Credits: base-93 / Mode-2 decoder and PWD_KEY_MODE2 from
@@ -31,6 +34,7 @@ Credits: base-93 / Mode-2 decoder and PWD_KEY_MODE2 from
   - github.com/minanagehsalalma/huawei-dg8045-hg630-hg633-...
 """
 
+import argparse
 import hashlib
 import hmac
 import struct
@@ -179,14 +183,31 @@ def decompress_payload(dec):
     return xml
 
 
-if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        print(__doc__)
-        raise SystemExit(1)
+def build_parser():
+    parser = argparse.ArgumentParser(
+        prog="huawei-config decrypt",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("input", metavar="ENCRYPTED", help="encrypted config backup (.bin)")
+    parser.add_argument("output", metavar="OUTPUT", help="write the plaintext XML to OUTPUT")
+    return parser
+
+
+def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
     try:
-        ok = decrypt(sys.argv[1], sys.argv[2])
+        args = build_parser().parse_args(argv)
+    except SystemExit as exc:  # argparse already printed help or an error
+        return exc.code if isinstance(exc.code, int) else 2
+    try:
+        ok = decrypt(args.input, args.output)
     except ContainerError as exc:
         print(f"[!] {exc}")
-        raise SystemExit(3) from None
+        return 3
     # non-zero exit if the HMAC did not verify, so callers can detect a bad decrypt
-    raise SystemExit(0 if ok else 2)
+    return 0 if ok else 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

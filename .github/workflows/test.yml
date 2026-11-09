@@ -7,14 +7,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
       - name: lint & format check
         run: |
-          pip install ruff
-          ruff check .
-          ruff format --check .
+          uv run ruff check .
+          uv run ruff format --check .
       - name: run the whole suite
-        run: python tests/test_all.py
+        run: uv run python tests/test_all.py

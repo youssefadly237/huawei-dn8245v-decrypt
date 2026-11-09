@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for config_diff.py — run with:  python3 tests/test_config_diff.py"""
+"""Tests for config_diff.py — run with:  uv run python tests/test_config_diff.py"""
 
 import os
 import sys
